@@ -32,15 +32,6 @@ public class RFID {
         getDistanceForSingleFile2(CSV_DIRECTORY + CSV_FILENAME);
 
 
-
-
-
-
-
-
-
-
-
         /*
         double[][] nResults = new double[RUN_LENGTH][medians.size()];
         double[][] nDeviations = new double[RUN_LENGTH][medians.size()];
@@ -182,14 +173,15 @@ public class RFID {
 
             singleTag.sort(new PhaseFreqComparator());
 
-            for (int i = 0; i < singleTag.size(); i++) {
-                System.out.println("Index " + i + ":\tFreq: " + singleTag.get(i).mFrequency + "\tPhase: " + singleTag.get(i).mPhase);
-            }
+//            for (int i = 0; i < singleTag.size(); i++) {
+//                System.out.println("Index " + i + ":\tFreq: " + singleTag.get(i).mFrequency + "\tPhase: " + singleTag.get(i).mPhase);
+//            }
 
             singleTag.get(0).phaseOffset = 0;
             int prevPhaseOffset = 0;
             double prevPhase = singleTag.get(0).mPhase;
 
+            //for each record, check phase vs prev phase and sorts out sawtooth and gets rid of outliers
             for (int i = 1; i < singleTag.size(); i++) {
                 if (singleTag.get(i).mPhase - prevPhase > (Math.PI / 2)) {
                     singleTag.get(i).phaseOffset = prevPhaseOffset + 1;

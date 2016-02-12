@@ -10,6 +10,8 @@ public class RFIDRow {
     public double mRSSI;
     public double mPhase;
     public int mFrequency;
+    public double mAdjustedPhase;
+    public int phaseOffset;
 
     public RFIDRow(String tagId, String UPC, String readerID, double timestamp, double RSSI, double phase, int freq) {
         mTagID = tagId;
