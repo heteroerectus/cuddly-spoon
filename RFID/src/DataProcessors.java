@@ -85,15 +85,30 @@ public class DataProcessors {
         return sum/sortedArray.length;
     }
 
-    public double[] getStandardDeviation(ArrayList<Double> phases)
+    public double getAverage (double[] phases)
     {
-        double[] std = new double[phases.size()];
-        double mean = getAverage(phases);
-        for(int i = 0; i < phases.size(); i++){
-            std[i] = Math.pow((phases.get(i).doubleValue() - mean),2);
+        double sum = 0;
+        for (int i = 0; i<phases.length; i++)
+        {
+            sum+=phases[i];
         }
 
-        return std;
+        return sum/phases.length;
+    }
+
+    public double getStandardDeviation(double[] phases)
+    {
+        double mean = getAverage(phases);
+        double variance = 0;
+
+        for(int i = 0; i < phases.length; i++){
+            phases[i] = Math.pow((phases[i] - mean),2);
+            variance += phases[i];
+        }
+
+        variance = variance/(phases.length - 1);
+
+        return Math.sqrt(variance);
     }
 
     public double getMedian (ArrayList<Double> phases)

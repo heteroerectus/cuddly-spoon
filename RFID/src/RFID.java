@@ -17,13 +17,15 @@ import org.supercsv.io.CsvListWriter;
 import org.supercsv.io.ICsvListReader;
 import org.supercsv.io.ICsvListWriter;
 import org.supercsv.prefs.CsvPreference;
+
+import javax.xml.crypto.Data;
 import java.lang.String;
 
 public class RFID {
 
     public static final int RUN_LENGTH = 100;
-    private static final String CSV_DIRECTORY = "src/resources/";
-    private static String CSV_FILENAME = "2_Racks.csv";
+    private static final String CSV_DIRECTORY = "src/resources/One-off_NA/";
+    private static String CSV_FILENAME = "100cm.csv"; //2_racks.csv
     private static ArrayList<RFIDRow> rawList;
 
     public static void main(String[] args) throws Exception {
@@ -115,6 +117,7 @@ public class RFID {
     private static double getDistanceForSingleFile2(String filename)
     {
         ArrayList<RFIDRow> rows = parseDataFromFile2(filename);
+        DataProcessors dp = new DataProcessors();
 
         int minFreq = rows.get(0).mFrequency;
         int maxFreq = rows.get(rows.size()-1).mFrequency;
@@ -142,7 +145,12 @@ public class RFID {
         for (int i = 0; i < rawList.size(); i++)
         {
             System.out.println("Index " + i + ":\tFreq: " + rawList.get(i).mFrequency + "\tPhase: " + rawList.get(i).mPhase + "\tphaseOffset: " + rawList.get(i).phaseOffset + "\tmAdjustedPhase: " + rawList.get(i).mAdjustedPhase);
+
+
         }
+
+        //------- std dev
+        //System.out.println(dp.getStandardDeviation(rawList));
 
         double minFreqAvgPhase = minTotal/minCount;
         double maxFreqAvgPhase = maxTotal/maxCount;
@@ -161,9 +169,9 @@ public class RFID {
         CSV_FILENAME = filename;
         try {
             rawList = readWithCsvListReader();
-            String tag = "30143639F8562AC5407B91EB";
+            String tag = "1006835900000000000008D4"; //"30143639F8562AC5407B91EB";
             ArrayList<RFIDRow> singleTag = new ArrayList<>();
-
+            DataProcessors dp = new DataProcessors();
 
             for(int i = 0; i < rawList.size(); i++)
             {
@@ -197,10 +205,15 @@ public class RFID {
                 prevPhaseOffset = singleTag.get(i).phaseOffset;
             }
 
+            double[] adjustedPhases = new double[singleTag.size()];
             for(int i = 0; i < singleTag.size(); i++)
             {
                 singleTag.get(i).mAdjustedPhase = singleTag.get(i).mPhase - singleTag.get(i).phaseOffset*Math.PI;
+                adjustedPhases[i] = singleTag.get(i).mAdjustedPhase;
             }
+
+            //------- std dev
+            System.out.println("Standard deviation of single tag = " + dp.getStandardDeviation(adjustedPhases));
 
             return singleTag;
         }
@@ -227,13 +240,7 @@ public class RFID {
                 mppwl.wavelength = wavelength;
 
                 //------- std dev
-//                double[] standardDev = dp.getStandardDeviation(phasesWithinEachWavelength.get((wavelength)));
-//
-//                ArrayList<Double> values = new ArrayList<>();
-//
-//                for (double val : standardDev)
-//                    values.add(val);
-                //-------
+                //System.out.println(dp.getStandardDeviation(phasesWithinEachWavelength.get(wavelength)));
 
                 mppwl.phaseMedian = dp.getMedian(phasesWithinEachWavelength.get(wavelength)); //was using getMedian
                 medianPhases.add(mppwl);
