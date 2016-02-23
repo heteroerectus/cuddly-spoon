@@ -9,6 +9,12 @@ public class SKU {
     private String skuID;
     Map<String, Map<String, ArrayList<RFIDRow>>> readerToTags;
 
+    public SKU (String _skuID)
+    {
+        skuID = _skuID;
+        readerToTags = new HashMap<>();
+    }
+
     public Map<String, Map<String, ArrayList<RFIDRow>>> getReaderToTags() {
         return readerToTags;
     }

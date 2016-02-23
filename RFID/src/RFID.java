@@ -19,6 +19,7 @@ import org.supercsv.io.ICsvListReader;
 import org.supercsv.io.ICsvListWriter;
 import org.supercsv.prefs.CsvPreference;
 
+import javax.print.DocFlavor;
 import javax.xml.crypto.Data;
 import java.lang.String;
 
@@ -43,20 +44,26 @@ public class RFID {
         //for each reader in sku
         //get confidence from tags
 
+        int a = 0;
+        int b = 0;
+        int c = 0;
+
         for (SKU sku : skus)
         {
+            a++;
             for (String reader : sku.getReaderToTags().keySet())
             {
+                b++;
+                System.out.println("b size " + sku.getReaderToTags().keySet().size());
                 //populate arraylist of single tags
                 double bestConfidenceOfTags = 999;
                 double bestDistanceOfTags = 0;
 
-                int i = 0;
                 for (String tagID : sku.getReaderToTags().get(reader).keySet())
                 {
-                    i ++;
-                    ArrayList<RFIDRow> tagData = new ArrayList<>();
-                    tagData = sku.getReaderToTags().get(reader).get(tagID);
+                    c++;
+                    System.out.println("c size " + sku.getReaderToTags().get(reader).keySet().size());
+                    ArrayList<RFIDRow> tagData = sku.getReaderToTags().get(reader).get(tagID);
 
                     dp.destripeSingleTag(tagData);
 
@@ -75,6 +82,8 @@ public class RFID {
                 System.out.println("sku " + sku.getSkuID() + " reader " + reader + " distance " + bestDistanceOfTags + " confidence " + bestConfidenceOfTags );
             }
         }
+
+        System.out.println("a " + a + " b " + b + " c " + c);
     }
 
     private static ArrayList<SKU> populateSKUs(Map<String, Map<String, ArrayList<RFIDRow>>> readerTagMap)
@@ -123,31 +132,95 @@ public class RFID {
         skuGroupings[2] = sku2tagIDs;
         skuGroupings[3] = sku3tagIDs;
 
-        for (int i = 0; i<skuGroupings.length; i++) {
-            SKU sku = new SKU();
-            for (String skuTag : skuGroupings[i]) {
+        SKU sku0 = new SKU("0");
+        SKU sku1 = new SKU("1");
+        SKU sku2 = new SKU("2");
+        SKU sku3 = new SKU("3");
 
-                Map<String, Map<String, ArrayList<RFIDRow>>> matchingTagsByReader = new HashMap<>();
 
-                for (String reader : readerTagMap.keySet()) {
-                    Map<String, ArrayList<RFIDRow>> matchingTags = new HashMap<>();
-                    for (String tag : readerTagMap.get(reader).keySet()) {
-
-                        if (skuTag.equalsIgnoreCase(tag))
-                            matchingTags.put(tag, readerTagMap.get(reader).get(tag));
-                    }
-
-                    matchingTagsByReader.put(reader, matchingTags);
+        for (String reader : readerTagMap.keySet()){
+            System.out.println("keysize " + readerTagMap.get(reader).keySet());
+            for (String tag : readerTagMap.get(reader).keySet()){
+                if (Arrays.asList(sku0tagIDs).contains(tag)){
+                    AddTagsToSKU(sku0, reader, tag, readerTagMap);
+                } else if (Arrays.asList(sku1tagIDs).contains(tag)){
+                    AddTagsToSKU(sku1, reader, tag, readerTagMap);
+                } else if (Arrays.asList(sku2tagIDs).contains(tag)){
+                    AddTagsToSKU(sku2, reader, tag, readerTagMap);
+                } else if (Arrays.asList(sku3tagIDs).contains(tag)){
+                    AddTagsToSKU(sku3, reader, tag, readerTagMap);
+                } else {
+                    System.out.println("ERROR: WTF??? : " + tag);
                 }
-
-                sku.setSkuID("SKU" + i);
-                sku.setReaderToTags(matchingTagsByReader);
             }
-
-            skus.add(sku);
         }
 
+        skus.add(sku0);skus.add(sku1);skus.add(sku2);skus.add(sku3);
+
+//        for (int i = 0; i<skuGroupings.length; i++) {
+//            SKU sku = new SKU("SKU" + i);
+//
+//            int hits = 0;
+//            for (String skuTag : skuGroupings[i]) {
+//
+//                Map<String, ArrayList<RFIDRow>> matchingTags = new HashMap<>();
+//
+//                for (String reader : readerTagMap.keySet()) {
+//
+//                    for (String tag : readerTagMap.get(reader).keySet()) {
+//                        System.out.println("keysize " + readerTagMap.get(reader).keySet());
+//
+//                        if (skuTag.equalsIgnoreCase(tag)) {
+//                            System.out.println(hits++);
+//                            matchingTags.put(tag, readerTagMap.get(reader).get(tag));
+//
+//                            if (sku.getReaderToTags().get(reader) != null)
+//                                sku.getReaderToTags().get(reader).put(tag, readerTagMap.get(reader).get(tag));
+//                            else
+//                            {
+//                                Map<String, Map<String, ArrayList<RFIDRow>>> matchingTagsByReader = new HashMap<>();
+//                                Map<String, ArrayList<RFIDRow>> tags =
+//                                matchingTagsByReader.put(reader,new HashMap<String, ArrayList<RFIDRow>>());
+//                                sku.setReaderToTags(matchingTagsByReader);
+//
+//                                if (sku.getReaderToTags().get(reader).get(tag) != null)
+//                                    sku.getReaderToTags().get(reader).put(tag, readerTagMap.get(reader).get(tag));
+//                                else {
+//                                    ArrayList<RFIDRow> tagToTagData = new ArrayList<>();
+//                                    sku.getReaderToTags().get(reader).put(tag, tagToTagData);
+//                                    sku.getReaderToTags().get(reader).put(tag, readerTagMap.get(reader).get(tag));
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//
+//            skus.add(sku);
+//        }
+
         return skus;
+    }
+
+    private static void AddTagsToSKU(SKU sku, String reader, String tag, Map<String, Map<String, ArrayList<RFIDRow>>> readerTagMap){
+        if (sku.getReaderToTags().get(reader) == null){
+            sku.getReaderToTags().put(reader, new HashMap<String, ArrayList<RFIDRow>>());
+        }
+        if (sku.getReaderToTags().get(reader).get(tag) == null){
+            sku.getReaderToTags().get(reader).put(tag, readerTagMap.get(reader).get(tag));
+        } else {
+            sku.getReaderToTags().get(reader).get(tag).addAll(readerTagMap.get(reader).get(tag));
+        }
+    }
+
+    private static void ParseSkuTags(String[] tags, SKU sku, Map<String, Map<String, ArrayList<RFIDRow>>> readerTagMap){
+        for (String tag : tags){
+            ParseTag(tag, sku, readerTagMap);
+        }
+    }
+
+    private static void ParseTag(String tag, SKU sku, Map<String, Map<String, ArrayList<RFIDRow>>> readerTagMap){
+
     }
 
     private static CellProcessor[] getProcessors() {
