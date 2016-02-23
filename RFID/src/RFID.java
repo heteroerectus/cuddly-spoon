@@ -4,6 +4,7 @@
 
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -24,236 +25,129 @@ import java.lang.String;
 public class RFID {
 
     public static final int RUN_LENGTH = 100;
-    private static final String CSV_DIRECTORY = "src/resources/One-off_NA/";
-    private static String CSV_FILENAME = "100cm.csv"; //2_racks.csv
+    private static final String CSV_DIRECTORY = "src/resources/";
+    private static String CSV_FILENAME = "2_racks.csv"; //2_racks.csv
     private static ArrayList<RFIDRow> rawList;
+    private static DataProcessors dp;
 
     public static void main(String[] args) throws Exception {
 
-        //getDistanceForAllFiles();
-        getDistanceForSingleFile2(CSV_DIRECTORY + CSV_FILENAME);
+        dp = new DataProcessors();
+        rawList = readWithCsvListReader();
 
+        Map<String, Map<String, ArrayList<RFIDRow>>> readerTagMap = new HashMap<>();
+        readerTagMap = dp.getReaderTagMap(rawList);
 
-        /*
-        double[][] nResults = new double[RUN_LENGTH][medians.size()];
-        double[][] nDeviations = new double[RUN_LENGTH][medians.size()];
+        ArrayList<SKU> skus = populateSKUs(readerTagMap);
 
-        for (int i = 0; i<candidates.length; i++) {
+        //for each reader in sku
+        //get confidence from tags
 
-            //System.out.println("Candidate " + i + " " + candidates[i]);
-
-            for (int j = 0; j<4; j++)
-            {
-                double x = candidates[i];
-                double lambda = medians.get(j).wavelength;
-                double alpha = medians.get(j).phaseMedian;
-
-                //System.out.println("alpha " + alpha + " lambda " + lambda);
-
-                nResults[i][j] = (x - (lambda * (alpha / (2 * Math.PI)))) / lambda;
-                double result = nResults[i][j];
-
-                nDeviations[i][j] = result - Math.round(result);
-            }
-        }
-
-        //iterate through each wavelength/candidate/n to find near integer values
-        for (int i = 0; i < nResults.length; i++)
+        for (SKU sku : skus)
         {
-            System.out.println(i + " " + nDeviations[i][0] + " " + nDeviations[i][1] + " " + nDeviations[i][2] + " " + nDeviations[i][3] );
-        }
-        */
-
-    }
-
-    private static void getDistanceForAllFiles () throws Exception
-    {
-        Files.walk(Paths.get(CSV_DIRECTORY)).forEach(filePath -> {
-            if (Files.isRegularFile(filePath)) {
-                if (filePath.toString().endsWith(".csv")) {
-
-                    ArrayList<MedianPhasePerWavelength> medians = parseDataFromFile(filePath.toString());
-
-                    DataProcessors dp = new DataProcessors();
-
-                    if (medians.size() > 1)
-                        System.out.println(filePath.toString().substring(filePath.toString().length()-9, filePath.toString().length()-6) + " " + dp.calculateDistanceWithEquation(medians));
-                    else
-                        System.out.println(filePath.toString().substring(filePath.toString().length()-9, filePath.toString().length()-6) + " was equal to " + medians.size());
-
-                    //scott's concept
-                    /*
-                    double wavelengthDiff = medians.get(0).wavelength - medians.get(3).wavelength;
-                    double phaseDiff = (medians.get(0).phaseMedian / (2 * Math.PI) * medians.get(0).wavelength) - (medians.get(3).phaseMedian / (2 * Math.PI) * medians.get(0).wavelength);
-                    double distance = Math.abs((phaseDiff * medians.get(2).wavelength) + phaseDiff);
-                    System.out.println(filePath.toString().substring(filePath.toString().length()-9, filePath.toString().length()-6) + " " + distance);
-                    */
-
-                }
-            }
-        });
-    }
-
-    private static void getDistanceForSingleFile(String filename)
-    {
-        ArrayList<MedianPhasePerWavelength> medians = parseDataFromFile(filename);
-        DataProcessors dp = new DataProcessors();
-
-        System.out.println("Estimated distance from equation: " + filename.substring(filename.length()-9, filename.length()-6) + " " + dp.calculateDistanceWithEquation(medians));
-
-        System.out.println("Estimated distance from slope: " + filename.substring(filename.length()-9, filename.length()-6) + " " + dp.calculateDistanceWithEquation(dp.getSlope(medians)));
-
-
-        //get distance candidates for first wavelength
-
-//        double[] candidates = dp.getDistanceCandidates(medians.get(0).wavelength, medians.get(0).phaseMedian); //30
-//        for (int i = 0; i < candidates.length; i++) {
-//            double candidate = candidates[i];
-//            System.out.println(candidate);
-//        }
-
-    }
-
-    private static double getDistanceForSingleFile2(String filename)
-    {
-        ArrayList<RFIDRow> rows = parseDataFromFile2(filename);
-        DataProcessors dp = new DataProcessors();
-
-        int minFreq = rows.get(0).mFrequency;
-        int maxFreq = rows.get(rows.size()-1).mFrequency;
-
-        int minCount = 0;
-        int maxCount = 0;
-        double minTotal = 0;
-        double maxTotal = 0;
-
-        for(int i = 0; i < rows.size(); i++)
-        {
-            if(rows.get(i).mFrequency == minFreq)
+            for (String reader : sku.getReaderToTags().keySet())
             {
-                minCount++;
-                minTotal += rows.get(i).mAdjustedPhase;
-            }
+                //populate arraylist of single tags
+                double bestConfidenceOfTags = 999;
+                double bestDistanceOfTags = 0;
 
-            if(rows.get(i).mFrequency == maxFreq)
-            {
-                maxCount++;
-                maxTotal += rows.get(i).mAdjustedPhase;
-            }
-        }
-
-        for (int i = 0; i < rawList.size(); i++)
-        {
-            System.out.println("Index " + i + ":\tFreq: " + rawList.get(i).mFrequency + "\tPhase: " + rawList.get(i).mPhase + "\tphaseOffset: " + rawList.get(i).phaseOffset + "\tmAdjustedPhase: " + rawList.get(i).mAdjustedPhase);
-
-
-        }
-
-        //------- std dev
-        //System.out.println(dp.getStandardDeviation(rawList));
-
-        double minFreqAvgPhase = minTotal/minCount;
-        double maxFreqAvgPhase = maxTotal/maxCount;
-
-        double slope = 1000 * (maxFreqAvgPhase-minFreqAvgPhase) / (maxFreq-minFreq);
-
-        double estDist = -22.187 * slope - 2.2403;
-
-        System.out.println("For file " + filename + ", estimated distance = " + estDist);
-
-        return estDist;
-    }
-
-    private static ArrayList<RFIDRow> parseDataFromFile2(final String filename)
-    {
-        CSV_FILENAME = filename;
-        try {
-            rawList = readWithCsvListReader();
-            String tag = "1006835900000000000008D4"; //"30143639F8562AC5407B91EB";
-            ArrayList<RFIDRow> singleTag = new ArrayList<>();
-            DataProcessors dp = new DataProcessors();
-
-            for(int i = 0; i < rawList.size(); i++)
-            {
-                if(rawList.get(i).mTagID.equalsIgnoreCase(tag))
-                    singleTag.add(rawList.get(i));
-            }
-
-            singleTag.sort(new PhaseFreqComparator());
-
-//            for (int i = 0; i < singleTag.size(); i++) {
-//                System.out.println("Index " + i + ":\tFreq: " + singleTag.get(i).mFrequency + "\tPhase: " + singleTag.get(i).mPhase);
-//            }
-
-            singleTag.get(0).phaseOffset = 0;
-            int prevPhaseOffset = 0;
-            double prevPhase = singleTag.get(0).mPhase;
-
-            //for each record, check phase vs prev phase and sorts out sawtooth and gets rid of outliers
-            for (int i = 1; i < singleTag.size(); i++) {
-                if (singleTag.get(i).mPhase - prevPhase > (Math.PI / 2)) {
-                    singleTag.get(i).phaseOffset = prevPhaseOffset + 1;
-                } else if (singleTag.get(i).mPhase - prevPhase < -(Math.PI / 2)) {
-                    singleTag.get(i).phaseOffset = prevPhaseOffset - 1;
-                }
-                else
+                int i = 0;
+                for (String tagID : sku.getReaderToTags().get(reader).keySet())
                 {
-                    singleTag.get(i).phaseOffset = prevPhaseOffset;
+                    i ++;
+                    ArrayList<RFIDRow> tagData = new ArrayList<>();
+                    tagData = sku.getReaderToTags().get(reader).get(tagID);
+
+                    dp.destripeSingleTag(tagData);
+
+                    //get distance and confidence
+                    double confidenceForThisTag = dp.getConfidenceForSingleTag(tagData);
+                    double distanceForThisTag = dp.getDistanceForSingleTagSingleReader(tagData);
+
+                    //compare by confidence and return distance for SKU/Reader combo
+                    if (confidenceForThisTag < bestConfidenceOfTags) {
+                        bestConfidenceOfTags = confidenceForThisTag;
+                        bestDistanceOfTags = distanceForThisTag;
+                    }
                 }
 
-                prevPhase = singleTag.get(i).mPhase;
-                prevPhaseOffset = singleTag.get(i).phaseOffset;
+                //do the same for this reader
+                System.out.println("sku " + sku.getSkuID() + " reader " + reader + " distance " + bestDistanceOfTags + " confidence " + bestConfidenceOfTags );
             }
-
-            double[] adjustedPhases = new double[singleTag.size()];
-            for(int i = 0; i < singleTag.size(); i++)
-            {
-                singleTag.get(i).mAdjustedPhase = singleTag.get(i).mPhase - singleTag.get(i).phaseOffset*Math.PI;
-                adjustedPhases[i] = singleTag.get(i).mAdjustedPhase;
-            }
-
-            //------- std dev
-            System.out.println("Standard deviation of single tag = " + dp.getStandardDeviation(adjustedPhases));
-
-            return singleTag;
         }
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-
-        return null;
     }
 
-    private static ArrayList<MedianPhasePerWavelength> parseDataFromFile(final String filename)
+    private static ArrayList<SKU> populateSKUs(Map<String, Map<String, ArrayList<RFIDRow>>> readerTagMap)
     {
-        CSV_FILENAME = filename;
-        try {
-            rawList = readWithCsvListReader();
+        ArrayList<SKU> skus = new ArrayList<>();
+        String[][] skuGroupings = new String[4][];
 
-            DataProcessors dp = new DataProcessors();
-            Map<Double, ArrayList<Double>> phasesWithinEachWavelength = dp.getPhasesWithinEachWavelength(rawList); //for one tag
-            ArrayList<MedianPhasePerWavelength> medianPhases = new ArrayList<>();
+        //populate sku list
+        String[] sku0tagIDs = {
+                "30143639F8562AC5407B334B",
+                "30143639F8562A85407B335B",
+                "30143639F8562985407B91FB",
+                "301402662C1BBFC5407B4A9D",
+                "301402662C1BBF85407AECDC",
+                "301402662C1BBF45407B556B"};
 
-            for (Double wavelength : phasesWithinEachWavelength.keySet()) {
-                MedianPhasePerWavelength mppwl = new MedianPhasePerWavelength();
-                mppwl.wavelength = wavelength;
+        String[] sku1tagIDs = {
+                "30143639F8562945407B337B",
+                "30143639F8562985407B336B",
+                "30143639F8562985407BA30B",
+                "30143639F8562AC5407B91EB"};
 
-                //------- std dev
-                //System.out.println(dp.getStandardDeviation(phasesWithinEachWavelength.get(wavelength)));
+        String[] sku2tagIDs = {
+                "301402662C1BBE85407B557B",
+                "301402662C1BBE45407B4ABD",
+                "301402662C1BBE05407B558B",
+                "301402662C1BBD45407B55AB",
+                "301402662C1BBD45407B559B",
+                "301402662C1BBD05407B55CB"};
 
-                mppwl.phaseMedian = dp.getMedian(phasesWithinEachWavelength.get(wavelength)); //was using getMedian
-                medianPhases.add(mppwl);
+        String[] sku3tagIDs = {
+                "30143621783153C5407B4C3D",
+                "3014362178315485407B4C2D",
+                "3014362178315485407B919B",
+                "30143621783154C5407B913B",
+                "301402662C1BBA45407B4AFD",
+                "301402662C1BBA85407B4ADD",
+                "301402662C1BBB85407B4ACD",
+                "301402662C1BBBC5407B4AED",
+                "301402662C1BBBC5407B4A7D",
+                "301402662C1BBCC5407AED4B",
+                "301402662C1BBD05407B55BB"};
+
+        skuGroupings[0] = sku0tagIDs;
+        skuGroupings[1] = sku1tagIDs;
+        skuGroupings[2] = sku2tagIDs;
+        skuGroupings[3] = sku3tagIDs;
+
+        for (int i = 0; i<skuGroupings.length; i++) {
+            SKU sku = new SKU();
+            for (String skuTag : skuGroupings[i]) {
+
+                Map<String, Map<String, ArrayList<RFIDRow>>> matchingTagsByReader = new HashMap<>();
+
+                for (String reader : readerTagMap.keySet()) {
+                    Map<String, ArrayList<RFIDRow>> matchingTags = new HashMap<>();
+                    for (String tag : readerTagMap.get(reader).keySet()) {
+
+                        if (skuTag.equalsIgnoreCase(tag))
+                            matchingTags.put(tag, readerTagMap.get(reader).get(tag));
+                    }
+
+                    matchingTagsByReader.put(reader, matchingTags);
+                }
+
+                sku.setSkuID("SKU" + i);
+                sku.setReaderToTags(matchingTagsByReader);
             }
 
-            return medianPhases;
-
-        }
-        catch (Exception e) {
-            System.out.println(e);
+            skus.add(sku);
         }
 
-        return null;
+        return skus;
     }
 
     private static CellProcessor[] getProcessors() {
@@ -274,27 +168,28 @@ public class RFID {
 
     private static ArrayList<RFIDRow> readWithCsvListReader() throws Exception {
 
+
         ICsvListReader listReader = null;
         try {
-            listReader = new CsvListReader(new FileReader(CSV_FILENAME), CsvPreference.STANDARD_PREFERENCE);
+            listReader = new CsvListReader(new FileReader(CSV_DIRECTORY + CSV_FILENAME), CsvPreference.STANDARD_PREFERENCE);
 
             listReader.getHeader(true); // skip the header (can't be used with CsvListReader)
             final CellProcessor[] processors = getProcessors();
 
-            List<Object> customerList;
+            List<Object> record;
             ArrayList<RFIDRow> singleReaderList = new ArrayList<>();
             int index = 0;
 
-            while ((customerList = listReader.read(processors)) != null) {
+            while ((record = listReader.read(processors)) != null) {
 
                 singleReaderList.add(index, new RFIDRow(
-                        (String) customerList.get(0),
-                        (String) customerList.get(1),
-                        (String) customerList.get(2),
-                        (double) customerList.get(3),
-                        (double) customerList.get(4),
-                        (double) customerList.get(5),
-                        (int) customerList.get(6)));
+                        (String) record.get(0),
+                        (String) record.get(1),
+                        (String) record.get(2),
+                        (double) record.get(3),
+                        (double) record.get(4),
+                        (double) record.get(5),
+                        (int) record.get(6)));
 
             }
 
@@ -311,43 +206,5 @@ public class RFID {
     {
         return rawList;
     }
-
-        /*
-    private void writeWithCsvListWriter(ArrayList<RFIDRow> rawList) throws Exception
-    {
-        // create the customer Lists (CsvListWriter also accepts arrays!)
-        final List<Object> john = Arrays.asList(new Object[] { "1", "John", "Dunbar",
-                new GregorianCalendar(1945, Calendar.JUNE, 13).getTime(),
-                "1600 Amphitheatre Parkway\nMountain View, CA 94043\nUnited States", null, null,
-                "\"May the Force be with you.\" - Star Wars", "jdunbar@gmail.com", 0L });
-
-        final List<Object> bob = Arrays.asList(new Object[] { "2", "Bob", "Down",
-                new GregorianCalendar(1919, Calendar.FEBRUARY, 25).getTime(),
-                "1601 Willow Rd.\nMenlo Park, CA 94025\nUnited States", true, 0,
-                "\"Frankly, my dear, I don't give a damn.\" - Gone With The Wind", "bobdown@hotmail.com", 123456L });
-
-        ICsvListWriter listWriter = null;
-        try {
-            listWriter = new CsvListWriter(new FileWriter("target/writeWithCsvListWriter.csv"),
-                    CsvPreference.STANDARD_PREFERENCE);
-
-            final CellProcessor[] processors = getProcessors();
-            final String[] header = new String[] { "tag", "wavelength", "phaseMediam", "rssi" };
-
-            // write the header
-            listWriter.writeHeader(header);
-
-            // write the customer lists
-            listWriter.write(john, processors);
-            listWriter.write(bob, processors);
-
-        }
-        finally {
-            if( listWriter != null ) {
-                listWriter.close();
-            }
-        }
-    }
-*/
 }
 

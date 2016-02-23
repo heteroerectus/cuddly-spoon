@@ -12,226 +12,182 @@ import java.util.*;
 public class DataProcessors {
 
     public static final int c = 299792458;
-    public static final double poo = 0.0491;
 
-    public DataProcessors()
-    {
+    public DataProcessors() {
         super();
     }
 
-    public ArrayList<RFIDRow> parseSingleTagSingleReader(String tagID, String readerID) {
-        ArrayList<RFIDRow> tempList = new ArrayList<>();
-
-        for (int i = 0; i < RFID.getRawList().size(); i++) {
-            if (RFID.getRawList().get(i).mTagID.equals(tagID) && RFID.getRawList().get(i).mReaderID.equals(readerID)) {
-                tempList.add(RFID.getRawList().get(i));
-            }
-        }
-
-        return tempList;
-    }
-
-    public Map<Double, ArrayList<Double>> getPhasesWithinEachWavelength (ArrayList<RFIDRow> rfidRows)
-    {
-        Map<Double, ArrayList<Double>> phasesPerFrequecy = new HashMap<>();
-
-         /*
-        double rssiMax = -9999;
-        //filter by strongest RSSI
-        for (int i = 0; i<rfidRows.size(); i++) {
-            double rssi = rfidRows.get(i).mRSSI;
-            if (rssi > rssiMax)
-                rssiMax = rssi;
-        }
-
-
-        TreeMap<String, ArrayList<RFIDRow>> rfidRowsByTag = new TreeMap<String, ArrayList<RFIDRow>>();
-
-        for (RFIDRow row : rfidRows) {
-            ArrayList<RFIDRow> tagRows = rfidRowsByTag.get(row.mTagID);
-
-        }
-*/
-        for (int i = 0; i<rfidRows.size(); i++)
-        {
-            //parse out one tag
-            if (rfidRows.get(i).mTagID.equals("1006835900000000000008D4")) { //increment last number from 0-4
-
-                double wavelength = getWavelengthFromFrequency(rfidRows.get(i).mFrequency);
-                ArrayList<Double> value = phasesPerFrequecy.get(wavelength); //key
-
-                if (value == null) {
-                    value = new ArrayList<>();
-                    phasesPerFrequecy.put(wavelength, value);
-                }
-
-                value.add(rfidRows.get(i).mPhase);
-            }
-        }
-
-        return phasesPerFrequecy;
-    }
-
-    public double getAverage (ArrayList<Double> phases)
-    {
+    public double getAverage(ArrayList<Double> phases) {
         Double[] sortedArray = phases.toArray(new Double[phases.size()]);
 
         double sum = 0;
-        for (int i = 0; i<sortedArray.length; i++)
-        {
-            sum+=sortedArray[i];
+        for (int i = 0; i < sortedArray.length; i++) {
+            sum += sortedArray[i];
         }
 
-        return sum/sortedArray.length;
+        return sum / sortedArray.length;
     }
 
-    public double getAverage (double[] phases)
-    {
+    public double getAverage(double[] phases) {
         double sum = 0;
-        for (int i = 0; i<phases.length; i++)
-        {
-            sum+=phases[i];
+        for (int i = 0; i < phases.length; i++) {
+            sum += phases[i];
         }
 
-        return sum/phases.length;
+        return sum / phases.length;
     }
 
-    public double getStandardDeviation(double[] phases)
-    {
+    public double getStandardDeviation(double[] phases) {
         double mean = getAverage(phases);
         double variance = 0;
 
-        for(int i = 0; i < phases.length; i++){
-            phases[i] = Math.pow((phases[i] - mean),2);
+        for (int i = 0; i < phases.length; i++) {
+            phases[i] = Math.pow((phases[i] - mean), 2);
             variance += phases[i];
         }
 
-        variance = variance/(phases.length - 1);
+        variance = variance / (phases.length - 1);
 
         return Math.sqrt(variance);
     }
 
-    public double getMedian (ArrayList<Double> phases)
-    {
+    public double getMedian(ArrayList<Double> phases) {
         Double[] sortedArray = phases.toArray(new Double[phases.size()]);
         Arrays.sort(sortedArray);
 
         double median;
         if (sortedArray.length % 2 == 0)
-            median = (sortedArray[sortedArray.length/2] + (double)sortedArray[sortedArray.length/2 - 1])/2;
+            median = (sortedArray[sortedArray.length / 2] + (double) sortedArray[sortedArray.length / 2 - 1]) / 2;
         else
-            median = sortedArray[sortedArray.length/2];
+            median = sortedArray[sortedArray.length / 2];
 
         return median;
     }
 
-    public double getWavelengthFromFrequency(double freqIn)
-    {
+    public double getWavelengthFromFrequency(double freqIn) {
         //lambda = speed of light(m/s) / frequency
         return c / (freqIn * 1000);
     }
 
-    public double getFrequencyFromWavelength(double wavelengthIn)
-    {
+    public double getFrequencyFromWavelength(double wavelengthIn) {
         //lambda = speed of light(m/s) / frequency
         return c / (wavelengthIn);
     }
 
-    public double[] getDistanceCandidates (double lambda, double alpha)
-    {
-        //System.out.println("alpha " + alpha + " lambda " + lambda);
-        double[] n = new double[RFID.RUN_LENGTH];
-        for (int i = 0; i<RFID.RUN_LENGTH; i++)
-            n[i] = lambda * (alpha / 2 / Math.PI) - (i * lambda);
+    public Map<String, Map<String, ArrayList<RFIDRow>>> getReaderTagMap(ArrayList<RFIDRow> recordList) {
+        Map<String, Map<String, ArrayList<RFIDRow>>> readerToTags = new HashMap<>();
 
-        return n;
+        for (RFIDRow record : recordList) {
+            String reader = record.mReaderID;
+            String tag = record.mTagID;
 
-    }
+            if (readerToTags.containsKey(reader)) {
+                Map<String, ArrayList<RFIDRow>> tagToData = readerToTags.get(reader);
 
-    public double calculateDistanceWithEquation (ArrayList<MedianPhasePerWavelength> rawList)
-    {
-        double smallestPhase = 100;
-        int smallestPhaseIndex = 0;
-        int largestPhaseIndex = 0;
-        double largestPhase = 0;
-
-        for (int i = 0; i<rawList.size(); i++)
-        {
-            double currentPhase = rawList.get(i).phaseMedian;
-            if (smallestPhase > currentPhase) {
-                smallestPhase = currentPhase;
-                smallestPhaseIndex = i;
-            }
-            if (largestPhase < currentPhase) {
-                largestPhase = currentPhase;
-                largestPhaseIndex = i;
+                if (tagToData.containsKey(tag)) {
+                    tagToData.get(tag).add(record);
+                } else {
+                    ArrayList<RFIDRow> tagreadList = new ArrayList<>();
+                    tagreadList.add(record);
+                    tagToData.put(tag, tagreadList);
+                    readerToTags.put(reader, tagToData);
+                }
+            } else {
+                Map<String, ArrayList<RFIDRow>> tagToData = new HashMap<>();
+                ArrayList<RFIDRow> tagreadList = new ArrayList<>();
+                tagreadList.add(record);
+                tagToData.put(tag, tagreadList);
+                readerToTags.put(reader, tagToData);
             }
         }
-
-        double phaseMedianDelta = rawList.get(largestPhaseIndex).phaseMedian - rawList.get(smallestPhaseIndex).phaseMedian;
-        double freqDelta = getFrequencyFromWavelength(rawList.get(largestPhaseIndex).wavelength) - getFrequencyFromWavelength(rawList.get(smallestPhaseIndex).wavelength);
-
-        System.out.println("Phase median large/small " + rawList.get(largestPhaseIndex).phaseMedian + " " + rawList.get(smallestPhaseIndex).phaseMedian);
-        System.out.println("Phase median delta " + phaseMedianDelta);
-        return (c * phaseMedianDelta) / ((Math.PI * 4)* freqDelta);
+        return readerToTags;
     }
 
-    public double calculateDistanceWithEquation (double slope)
-    {
-        double theSlope = -slope * (c / (Math.PI*4));
-        System.out.println(slope);
-        return theSlope;
+    //Turvey's method
+    public double getDistanceForSingleTagSingleReader(ArrayList<RFIDRow> singleTag) {
+        int minFreq = singleTag.get(0).mFrequency;
+        int maxFreq = singleTag.get(singleTag.size() - 1).mFrequency;
+
+        int minCount = 0;
+        int maxCount = 0;
+        double minTotal = 0;
+        double maxTotal = 0;
+
+        for (int i = 0; i < singleTag.size(); i++) {
+            if (singleTag.get(i).mFrequency == minFreq) {
+                minCount++;
+                minTotal += singleTag.get(i).mAdjustedPhase;
+            }
+
+            if (singleTag.get(i).mFrequency == maxFreq) {
+                maxCount++;
+                maxTotal += singleTag.get(i).mAdjustedPhase;
+            }
+        }
+
+        double minFreqAvgPhase = minTotal / minCount;
+        double maxFreqAvgPhase = maxTotal / maxCount;
+
+        double slope = 1000 * (maxFreqAvgPhase - minFreqAvgPhase) / (maxFreq - minFreq);
+
+        double estDist = -22.187 * slope - 2.2403;
+
+        return estDist;
     }
 
-    public double getSlope(ArrayList<MedianPhasePerWavelength> rawList )
-    {
-        Collections.sort(rawList, (p1, p2) -> p1.wavelength<p2.wavelength ? -1 : 1);
+    public ArrayList<RFIDRow> getSingleTag(ArrayList<RFIDRow> rawList, String tagID) {
+        //String tag = "301402662C1BBD05407B55BB"; //"30143639F8562AC5407B91EB";
+        ArrayList<RFIDRow> singleTag = new ArrayList<>();
+        DataProcessors dp = new DataProcessors();
 
-        double phaseTotal = 0;
-        double frequencyTotal = 0;
-        int size = rawList.size()/2;
-        double lsrNumerator = 0;
-        double lsrDenominator = 0;
-
-        //Calculate phaseMedianAverage
-        for (int i = 0; i < size; i++)
-        {
-            phaseTotal += rawList.get(i).phaseMedian;
-            frequencyTotal += getFrequencyFromWavelength(rawList.get(i).wavelength);
-
-
+        for (int i = 0; i < rawList.size(); i++) {
+            if (rawList.get(i).mTagID.equalsIgnoreCase(tagID))
+                singleTag.add(rawList.get(i));
         }
 
-        double phaseMedianAverage = phaseTotal/size;
-        double frequencyAverage = frequencyTotal/size;
+        singleTag.sort(new PhaseFreqComparator());
+        return singleTag;
+    }
 
-        //Calculate slope of regression line (least squares method)
-        for (int i = 0; i < size; i++)
-        {
-            lsrNumerator += (rawList.get(i).phaseMedian - phaseMedianAverage) * (getFrequencyFromWavelength(rawList.get(i).wavelength) - frequencyAverage);
-            lsrDenominator += Math.pow((rawList.get(i).phaseMedian - phaseMedianAverage), 2);
+    public void destripeSingleTag(ArrayList<RFIDRow> singleTag) {
+        try {
+            singleTag.get(0).phaseOffset = 0;
+            int prevPhaseOffset = 0;
+            double prevPhase = singleTag.get(0).mPhase;
+
+            //for each record, check phase vs prev phase and sorts out sawtooth and gets rid of outliers
+            for (int i = 1; i < singleTag.size(); i++) {
+                if (singleTag.get(i).mPhase - prevPhase > (Math.PI / 2)) {
+                    singleTag.get(i).phaseOffset = prevPhaseOffset + 1;
+                } else if (singleTag.get(i).mPhase - prevPhase < -(Math.PI / 2)) {
+                    singleTag.get(i).phaseOffset = prevPhaseOffset - 1;
+                } else {
+                    singleTag.get(i).phaseOffset = prevPhaseOffset;
+                }
+
+                prevPhase = singleTag.get(i).mPhase;
+                prevPhaseOffset = singleTag.get(i).phaseOffset;
+            }
+
+            for (int i = 0; i < singleTag.size(); i++) {
+                singleTag.get(i).mAdjustedPhase = singleTag.get(i).mPhase - singleTag.get(i).phaseOffset * Math.PI;
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return lsrNumerator/lsrDenominator;
+
+    }
+
+    public double getConfidenceForSingleTag(ArrayList<RFIDRow> singleTag) {
+        double[] adjustedPhases = new double[singleTag.size()];
+        for (int i = 0; i < singleTag.size(); i++) {
+            adjustedPhases[i] = singleTag.get(i).mAdjustedPhase;
+        }
+
+        return getStandardDeviation(adjustedPhases);
     }
 }
-
-//    public Pair<Double, Double> phaseDeltaForGivenDistance ()
-//    {
-//        double[] ranges = new double[] {0.5, 1, 1.5, 2, 2.5, 3.0, 3.5, 4.0, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10};
-//        int[] freqDeltas = new int[] {600000, 1200000, 1800000};
-//
-//        for (int i = 0; i<ranges.length; i++)
-//        {
-//            for (int j = 0; j < freqDeltas.length; j++) {
-//
-//                double deltaPhase = ranges[i] * ((Math.PI*4)/c) * freqDeltas[j];
-//            }
-//
-//
-//            Pair<Double, Double>
-//        }
-//    }
-
 
 
 
